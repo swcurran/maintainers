@@ -1,5 +1,0 @@
-extends: "org-config.yaml"
-
-before_text: |
-  # PROJECT BEFORE
-  project={project}, repo={repo}

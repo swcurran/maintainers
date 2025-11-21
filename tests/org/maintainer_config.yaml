@@ -1,0 +1,26 @@
+organization: "Test Open Source Foundation"
+gov_org: "Test Governance Repository"
+yaml_link: "tests/data/access_config.yaml"
+
+before_text: |
+  # Maintainers for {repo}
+
+  This MAINTAINERS.md file is automatically generated.
+
+  It lists all maintainers associated with the **{repo}** repository,
+  which belongs to the **{project}** project under the **{organization}**.
+
+  Governance details for team membership and permissions come from:
+  **{yaml_link}**
+
+after_text: |
+  ## Maintainer Duties
+
+  - Review issues and pull requests
+  - Participate in project discussions
+  - Approve or reject changes based on project goals
+  - Uphold the standards of the {organization}
+
+  ## Source of Truth
+
+  Maintainer membership is defined in the `{gov_org}` configuration.

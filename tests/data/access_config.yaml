@@ -1,0 +1,33 @@
+teams:
+  - name: core-admins
+    maintainers:
+      - alice
+    members:
+      - bob
+
+  - name: core-maintainers
+    maintainers:
+      - carol
+    members:
+      - dave
+
+  - name: core-contributors
+    maintainers: []
+    members:
+      - erin
+
+repositories:
+  - name: repo-basic
+    teams:
+      core-admins: admin
+      core-maintainers: maintain
+
+  - name: repo-project
+    teams:
+      core-maintainers: maintain
+      core-contributors: read
+
+  - name: repo-org
+    teams:
+      core-admins: admin
+      core-contributors: read

@@ -1,0 +1,9 @@
+extends: tests/org/maintainer_config.yaml
+
+before_text: |
+  # Project-Level Maintainers for {project}
+
+  This repository (**{repo}**) belongs to project **{project}**.
+
+  Organization: {organization}
+  Governance configuration: {yaml_link}

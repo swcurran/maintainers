@@ -1,0 +1,4 @@
+extends: tests/org/maintainer_config.yaml
+
+before_text: ""
+after_text: ""
