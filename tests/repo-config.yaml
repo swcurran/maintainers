@@ -1,0 +1,9 @@
+extends: "project-config.yaml"
+
+before_text: |
+  # REPO BEFORE
+  project={project}, repo={repo}
+
+after_text: |
+  ## REPO AFTER
+  project={project}, repo={repo}

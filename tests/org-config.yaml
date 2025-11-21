@@ -1,0 +1,18 @@
+yaml_link: "governance-config.yaml"
+
+organization: "Open Source Foundation"   # Example value—replace as needed
+
+# Name used in display text (e.g., "OWF Governance Repository")
+gov_org: "Governance Repository"
+
+# ---------------------------------------------------------------------------
+# BEFORE TEXT (Markdown)
+# ---------------------------------------------------------------------------
+
+before_text: |
+  # ORG BEFORE
+  project={project}, repo={repo}, yaml={yaml_link}, organization={organization}, gov_org={gov_org}
+
+after_text: |
+  ## ORG AFTER
+  project={project}, repo={repo}

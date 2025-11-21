@@ -1,0 +1,102 @@
+name: Update Maintainers
+
+on:
+  schedule:
+    # Customize this for your repo (recommended)
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  update-maintainers:
+    runs-on: ubuntu-latest
+
+    env:
+      # -----------------------------------------------------
+      # REQUIRED:
+      # Set this via: GitHub Settings → Variables → Actions → PROJECT
+      # Or hard-code it here:
+      # PROJECT: "ACA-Py"
+      # -----------------------------------------------------
+      PROJECT: "${{ vars.PROJECT }}"
+
+      # Auto-detect repository name
+      REPO: "${{ github.event.repository.name }}"
+
+      # -----------------------------------------------------
+      # REQUIRED:
+      # URL to the organization-level Maintainer Config.
+      # This is the ONLY configuration value a repo MUST set.
+      # -----------------------------------------------------
+      GENERATOR_CONFIG: "https://github.com/<org>/governance/blob/main/maintainers-config.yaml"
+
+      # -----------------------------------------------------
+      # REQUIRED:
+      # Location of the Maintainers Generator script
+      # (can be overridden if a repo/project wants a fork)
+      # -----------------------------------------------------
+      GENERATOR_SCRIPT_URL: "https://raw.githubusercontent.com/<org>/maintainers/main/generate-maintainers.py"
+
+    steps:
+
+      - name: Validate PROJECT
+        if: env.PROJECT == ''
+        run: |
+          echo "::error::PROJECT must be set as a repo variable or hard-coded."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: Download Maintainers Generator
+        run: |
+          curl -sSL "$GENERATOR_SCRIPT_URL" -o generate-maintainers.py
+          chmod +x generate-maintainers.py
+
+      - name: Select configuration file
+        id: cfg
+        run: |
+          if [ -f ".maintainers-config.yaml" ]; then
+            echo "config=.maintainers-config.yaml" >> $GITHUB_OUTPUT
+            echo "Using repo-level override configuration."
+          else
+            echo "config=$GENERATOR_CONFIG" >> $GITHUB_OUTPUT
+            echo "Using organization-level configuration."
+          fi
+
+      - name: Generate MAINTAINERS.md
+        run: |
+          python3 generate-maintainers.py \
+            --repo "$REPO" \
+            --project "$PROJECT" \
+            --config "${{ steps.cfg.outputs.config }}" \
+            --output MAINTAINERS.md
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if [[ -n "$(git status --porcelain MAINTAINERS.md)" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: update-maintainers
+          title: "Update MAINTAINERS.md"
+          commit-message: "Automated update of MAINTAINERS.md"
+          labels: "automation, maintainers"
+          body: |
+            Automated update of MAINTAINERS.md.
+            Project: ${{ env.PROJECT }}
+            Repository: ${{ env.REPO }}
+            Config Used: ${{ steps.cfg.outputs.config }}

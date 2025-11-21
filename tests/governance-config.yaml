@@ -1,0 +1,11 @@
+teams:
+  - name: test-team
+    maintainers:
+      - alice
+    members:
+      - bob
+
+repositories:
+  - name: test-repo
+    teams:
+      test-team: maintain
