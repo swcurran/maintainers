@@ -1,262 +1,305 @@
 # Maintainers Generator
 
-This repository contains the Maintainers Generator, a Python tool for automatically creating and updating MAINTAINERS.md files across an organization’s repositories based on centralized governance and configuration files.
+The Maintainers Generator is a Python tool for automatically generating and updating MAINTAINERS.md files across an organization’s repositories. It consumes centrally managed YAML configuration files (team memberships, repo roles, and governance text blocks) and produces accurate, consistent, human-readable maintainer documentation for each repository.
 
-In many organizations, maintainer information is controlled in a central Governance Repository that specifies teams, roles, and repository permissions in a machine-readable (YAML) format. Humans want to see a list of the maintainers and their roles at a per repository level in a MAINTAINER.md file. But, we don't want to have to manually keep the human consumable MAINTAINERS.md files up to date with the Governance Repository. The **Maintainers Generator** leverages the centralized data to produce consistent and accurate maintainer listings in each repository of each project within an organization.
+Many open-source foundations and multi-repository projects maintain their actual permissions and membership data in a machine-readable Governance Repository (e.g., GitHub teams, repo roles, admin/maintain/read privileges). However, humans need readable documentation in each repo. This tool automates that process and keeps MAINTAINERS.md files synchronized with organizational governance.
 
-A MAINTAINERS.md file includes not only the list of maintainers, but also governance information such as how to become a maintainer, the duties of a maintainer, and how to update team membership. This information is also centrally managed and propagated to each repository -- but is also customizable at the project and repository levels.
+A generated MAINTAINERS.md file includes:
+	•	Introductory text (configurable per organization/project/repo)
+	•	A table of current maintainers with:
+	•	GitHub ID
+	•	Display name (via GitHub API)
+	•	Email address (if available)
+	•	Company affiliation (if available)
+	•	Roles (admin/maintain/write/triage/read)
+	•	Governance text after the table:
+	•	Duties of maintainers
+	•	How to update team membership
+	•	How to become a maintainer
+	•	How to remove maintainers
+	•	And more, depending on config
 
-The **Maintainers Generator** is designed for organizations that have centralized their maintainer information in a machine-readable form across many repositories but also want that information provided in a human-readable maintainer file in each repository that is:
+The generator ensures the information is:
+	•	Accurate – pulled from authoritative YAML configuration
+	•	Consistent – identical formatting across all repos
+	•	Auditable – changes appear as Pull Requests
+	•	Customizable – overrides allowed at project and repo level
 
-- Accurate
-- Consistent
-- Auditable through Pull Requests
+It is designed for foundations, large open-source projects, and multi-repo teams who want uniform governance documentation across many repositories.
 
-Typical use cases include foundations, large open-source projects, and multi-repo community ecosystems.
+⸻
 
-## Table of Contents<!-- omit in toc -->
+Table of Contents 
+	•	How It Works￼
+	•	Configuration Layering￼
+	•	Running the Generator Locally￼
+	•	GitHub Action Integration￼
+	•	Organization-Level Maintainers Configuration￼
+	•	Snapshot Testing￼
+	•	Contributing￼
+	•	License￼
 
-- [Maintainers Generator](#maintainers-generator)
-  - [How It Works](#how-it-works)
-  - [Configuration Layering](#configuration-layering)
-  - [Running the Generator Locally](#running-the-generator-locally)
-  - [GitHub Action Integration](#github-action-integration)
-  - [Organization-Level Maintainers Configuration](#organization-level-maintainers-configuration)
-    - [What belongs in the organization-level config?](#what-belongs-in-the-organization-level-config)
-    - [Where should it live?](#where-should-it-live)
-    - [How repositories consume it](#how-repositories-consume-it)
-    - [Typical workflow for organizations](#typical-workflow-for-organizations)
-  - [Testing](#testing)
-  - [Contributing](#contributing)
-  - [License](#license)
+⸻
 
-## How It Works
+How It Works
 
-The generator builds a complete MAINTAINERS.md file using:
+The generator combines three inputs:
 
-1. Governance Repository machine-readable configuration (teams/roles YAML)
-   - Defines GitHub teams and their members
-   - Maps teams to repositories and roles (admin, maintain, write, triage, read)
-   - Is the authoritative source of who can do what in each repository within the organization.
+1. Governance Repository Configuration (Teams/Roles YAML)
 
-2. Organization-level Maintainers config (for example, maintainers-config.yaml)
-   - Defines the policy text blocks to be used in the MAINTAINERS.md file around the list of maintainers:
-     - before_text: Introductory text before the maintainers table
-     - after_text: Governance and process information after the maintainers table
-   - Contains human-readable values such as {organization} and {gov_org}
-   - Holds links to the Governance Repository configuration such as {yaml_link}
+Defines the truth for:
+	•	Which GitHub teams exist
+	•	Who is in each team
+	•	Which teams have which roles (admin/maintain/write/triage/read) per repository
+	•	Visibility and access control
 
-3. Optional project-level config
-   - Allows overriding organization defaults for a specific project -- for example, custom before/after text.
+This file is the authoritative source of permissions.
 
-4. Optional repo-level config (.maintainers-config.yaml in the repo root)
-   - Overrides project- and organization-level settings for a single repository -- for example, custom before/after text.
+⸻
 
-From these inputs, the generator produces the MAINTAINERS.md file with:
+2. Organization-Level Maintainers Configuration
 
-- An introductory “before” block of text
-- A Maintainers Table (the “Current Maintainers” section) listing GitHub IDs, names, emails, companies, and roles
-- A governance and process “after” block of text that can include:
-  - Updating team membership
-  - Duties of a maintainer
-  - Becoming a maintainer
-  - Removing maintainers
+(usually maintainers-config.yaml in the Governance Repository)
 
-Each repository adds a GitHub Actions workflow that runs the generator on a schedule (for example, weekly) to keep the MAINTAINERS.md file up to date. When changes are detected, a Pull Request is opened automatically for review and merging.
+Defines:
+	•	The default before_text (appears before the maintainer table)
+	•	The default after_text (appears after the table)
+	•	Values for template substitutions:
+	•	{organization}
+	•	{gov_org}
+	•	{yaml_link}
+	•	{yaml_raw_link}
+	•	The location of the Governance YAML file
+	•	Optional generator defaults
 
-## Configuration Layering
+⸻
 
-Configuration is applied in this order:
+3. Optional Project-Level and Repo-Level Overrides
 
-1. Repository-level config: .maintainers-config.yaml (highest precedence)
-2. Project-level config: optional, referenced via “extends”
-3. Organization-level config: maintainers-config.yaml in the Governance Repository
+Project-level config:
+Used when a project needs custom text not suitable globally.
 
-Each layer can override:
+Repo-level config (.maintainers-config.yaml):
+Allows per-repository customization without affecting the rest of the project.
 
-- Governance YAML source
-- before_text
-- after_text
-- {organization}
-- {gov_org}
-- Other settings as needed
+⸻
 
-This layered model enables organization-wide defaults with project- and repo-level customization where required.
+The generator produces a complete MAINTAINERS.md file composed of:
+	1.	Before-text block
+	2.	Maintainers table
+	3.	After-text block
 
-In most cases, repositories only need to reference the organization-level config and do not require any repo-level config. The GitHubActions template included in this repository can be used with minimal changes to achieve this "out of the box" setup.
+A GitHub Action in each repository runs the generator on a schedule, creates updated output, and opens PRs whenever changes occur.
 
-## Running the Generator Locally
+⸻
 
-You can run the generator locally for testing or manual updates.
+Configuration Layering
 
-Basic usage:
+Configuration is merged in this order (highest precedence last):
+	1.	Organization-level config
+	2.	Project-level config (optional)
+	3.	Repository-level config (.maintainers-config.yaml, optional)
 
-`python3 generate-maintainers.py --repo <repository-name> --project <project-name> --config <path-or-url-to-config> --output MAINTAINERS.md`
+Each layer may override:
+	•	before_text
+	•	after_text
+	•	Organization or project name
+	•	Governance repository name
+	•	Governance YAML location
+	•	Any variable used in template text
+
+This enables:
+	•	Global defaults
+	•	Per-project customization
+	•	Per-repo overrides
+
+Most repositories typically rely entirely on the organization-level config.
+
+⸻
+
+Running the Generator Locally
+
+To manually generate a MAINTAINERS.md file:
+
+python3 generate-maintainers.py \
+    --repo <repository-name> \
+    --project "<human project name>" \
+    --config <path-or-url-to-maintainers-config> \
+    --output MAINTAINERS.md
 
 Example:
 
-`python3 generate-maintainers.py --repo acapy --project "ACA-Py" --config https://raw.githubusercontent.com/<org>/governance/main/maintainers-config.yaml --output MAINTAINERS.md`
+python3 generate-maintainers.py \
+    --repo acapy \
+    --project "ACA-Py" \
+    --config https://raw.githubusercontent.com/<org>/governance/main/maintainers-config.yaml \
+    --output MAINTAINERS.md
 
-Command-line options:
+Command-Line Options
 
-`--repo`
-  Name of the repository as it appears in the governance YAML.
+Option	Description
+--repo	Repository name as defined in governance YAML
+--project	Human-readable project name
+--config	Path or URL to maintainer config file
+--output	Output filename (default: MAINTAINERS.md)
+--no-fetch	Skip GitHub user lookups
+--list-only	Output only the maintainers table
+--token	GitHub token (optional, for authenticated API)
 
-`--project`
-  Human-readable project name used in template substitution.
 
-`--config`
-  Path or URL to the maintainer configuration file.
+⸻
 
-`--output`
-  File to write the generated Markdown to.
+GitHub Action Integration
 
-`--no-fetch`
-  Skip GitHub API lookups for name, email, and company.
+The generator is typically run automatically once per week in each repository.
 
-`--list-only`
-  Output only the maintainer table.
-
-`--token`
-  GitHub token for authenticated API requests (optional).
-
-## GitHub Action Integration
-
-Most repositories use a GitHub Actions workflow to:
-
-- Run the Maintainers Generator on a schedule
-- Load the appropriate configuration
-- Generate MAINTAINERS.md
-- Create a Pull Request when changes occur
-
-Typical environment variables:
+Repositories define the following environment variables:
 
 PROJECT
-  Logical project name for this repository (e.g., “ACA-Py”, “Askar”, “Credo”).
-  Set via repository Actions Variables or hard-code in the workflow.
+
+Human-readable project name (e.g., “ACA-Py”, “Askar”, “Credo”).
+
+Set either as:
+	•	An Actions variable,
+	•	A workflow variable,
+	•	Or hard-coded into the workflow.
 
 REPO
-  The repository name, usually github.event.repository.name.
+
+Repository name. Often:
+
+github.event.repository.name
 
 GENERATOR_CONFIG
-  URL to the organization-level config (e.g., maintainers-config.yaml).
+
+URL to the organization-level maintainers config, e.g.:
+
+https://github.com/<org>/governance/blob/main/maintainers-config.yaml
 
 GENERATOR_SCRIPT_URL
-  Raw GitHub URL for generate-maintainers.py.
 
-Workflow logic usually:
+URL to the raw generate-maintainers.py script.
 
-1. Fail early if PROJECT is missing.
-2. Checkout repository.
-3. Install Python and dependencies.
-4. Download the generator script.
-5. If .maintainers-config.yaml exists, use it; otherwise use GENERATOR_CONFIG.
-6. Run the generator and write MAINTAINERS.md.
-7. Detect changes.
-8. Create a Pull Request if needed.
+⸻
 
-A ready-to-copy workflow template is included in this repository as TEMPLATE_GITHUB_ACTION.yml.
+Workflow Behavior
+	1.	Fail if PROJECT is missing.
+	2.	Download the generator script.
+	3.	Determine which config file to use:
+	•	Repo-level .maintainers-config.yaml if present
+	•	Otherwise, GENERATOR_CONFIG
+	4.	Run the generator.
+	5.	If MAINTAINERS.md changed → create a Pull Request.
 
----
+A reusable template workflow is included in this repository as:
+TEMPLATE_GITHUB_ACTION.yml.
 
-## Organization-Level Maintainers Configuration
+⸻
 
-Many organizations maintain a Governance Repository that defines:
+Organization-Level Maintainers Configuration
 
-- GitHub teams
-- Repository permissions
-- Access control rules
-- Governance policies
+Many organizations use a Governance Repository to define:
+	•	Teams
+	•	Group membership
+	•	Repository access rules
+	•	Governance processes
 
-The Maintainers Generator integrates with this structure using an organization-level config file, commonly named:
+The Maintainers Generator consumes an organization-level config file, usually:
 
-maintainers-config.yaml
-
-### What belongs in the organization-level config?
-
-- Default “before” text block
-- Default “after” text block
-- Human-readable organization name ({organization})
-- Governance Repository display name ({gov_org})
-- URL to the team/role configuration ({yaml_link})
-- Organization-wide generator defaults
-
-### Where should it live?
-
-Inside the Governance Repository, typically alongside the teams/roles YAML:
-
-governance/access-control.yaml
 governance/maintainers-config.yaml
 
-### How repositories consume it
+What Should Be Included?
+	•	Complete before_text
+	•	Complete after_text
+	•	{organization} (human name)
+	•	{gov_org} (governance repository name)
+	•	{yaml_link} (UI URL to governance YAML)
+	•	{yaml_raw_link} (raw GitHub URL)
+	•	Any default variables used in templates
 
-Repositories reference it in their workflow using GENERATOR_CONFIG, for example:
+How Repository Workflows Use It
+
+Repositories reference this file in their workflow:
 
 GENERATOR_CONFIG: "https://github.com/<org>/governance/blob/main/maintainers-config.yaml"
 
-Configuration is loaded in this order:
+Overrides may be applied through project or repo-level configs.
 
-1. Repository-level config
-2. Project-level config
-3. Organization-level config
+Typical Organization Workflow
+	1.	Update team membership in the Governance Repository.
+	2.	Submit a PR and obtain approvals from maintainers.
+	3.	Merge changes.
+	4.	Scheduled workflows in affected repos regenerate MAINTAINERS.md.
+	5.	PRs appear automatically wherever the list changed.
 
-Each level overrides the one before it.
+This keeps maintainer information synchronized across the entire organization.
 
-### Typical workflow for organizations
+⸻
 
-1. Update team membership in access-control.yaml.
-2. Open a Pull Request with the change.
-3. Obtain approval from maintainers.
-4. Merge the Pull Request.
-5. Each affected repository regenerates MAINTAINERS.md automatically via its scheduled workflow.
-6. A Pull Request is opened in each repository when its MAINTAINERS.md changes.
+Snapshot Testing
 
-This ensures maintainers lists stay consistent across the organization.
+This repository includes comprehensive snapshot testing using pytest-snapshot.
 
----
+Snapshot tests validate:
+	•	Output formatting
+	•	Config layering
+	•	Template substitution
+	•	Governance parsing
+	•	Maintainer table generation
 
-## Testing
+Run Tests
 
-This repository includes a test harness in a maintainers/tests directory.
+Activate your venv and run:
 
-Tests validate:
+pytest
 
-- Config inheritance
-- Template substitution
-- Governance YAML parsing
-- Maintainer table generation
-- Override behavior
+Updating Snapshots
 
-Run tests with:
+If your code intentionally changes output, update snapshots:
 
-./maintainers/tests/run-tests.sh
+pytest --snapshot-update
 
-(Adjust path if needed.)
+Review updated snapshot files under:
 
----
+tests/snapshots/
 
-## Contributing
+Commit these changes along with your code.
+
+Snapshot testing ensures consistent, auditable file generation across versions.
+
+⸻
+
+Contributing
 
 Contributions are welcome!
 
-Ways to contribute:
+You can contribute by:
+	•	Filing issues
+	•	Proposing enhancements
+	•	Improving tests
+	•	Maintaining or updating templates
+	•	Adding support for additional configuration options
 
-- Open issues for bugs or feature requests
-- Improve documentation or examples
-- Enhance configuration inheritance
-- Add test coverage
-- Submit Pull Requests with fixes or features
+Standard PR workflow:
+	1.	Fork the repo
+	2.	Create a feature branch
+	3.	Make changes
+	4.	Run tests (and update snapshots if needed)
+	5.	Submit a pull request
 
-Standard GitHub workflow applies:
+PRs are reviewed by maintainers before merging.
 
-1. Fork the repository
-2. Create a branch
-3. Make changes
-4. Open a Pull Request
+⸻
 
----
-
-## License
+License
 
 This project is licensed under the Apache License 2.0.
-See the [LICENSE](LICENSE) file for full details.
+See the LICENSE￼ file for details.
+
+⸻
+
+If you want, I can also generate:
+	•	A matching CONTRIBUTING.md
+	•	A Makefile to simplify local testing
+	•	Documentation for config file schemas
+	•	A “Quick Start Guide” for first-time users
