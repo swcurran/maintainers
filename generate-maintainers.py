@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-# generate-maintainers.py
+# generate-maintainers.py (with lightweight templating)
 
 import sys
 import argparse
 import requests
 import yaml
 from typing import Dict, Any, Optional, Set, Tuple
+import re
 
 
 def eprint(*args, **kwargs):
@@ -94,12 +95,66 @@ def collect_repo_members(repo_name: str, governance: Dict[str, Any]) -> Dict[str
     return members
 
 
-def substitute_vars(text: str, vars: Dict[str, str]) -> str:
-    """Replace {var} in before/after template text."""
-    for k, v in vars.items():
-        text = text.replace("{" + k + "}", v)
-    return text
+# ---------------------------------------------------------------------------
+# Templating: conditionals + default values
+# ---------------------------------------------------------------------------
 
+VAR_PATTERN = re.compile(r"\{([a-zA-Z0-9_]+)(?::([^}]+))?\}")
+
+def replace_vars(text: str, vars: Dict[str, str]) -> str:
+    """Replace {var} and {var:default} patterns."""
+    def repl(match):
+        key = match.group(1)
+        default = match.group(2)
+        return vars.get(key, default if default is not None else "")
+    return VAR_PATTERN.sub(repl, text)
+
+
+def render_template(text: str, vars: Dict[str, str]) -> str:
+    """
+    Supports:
+      {{ if var }}
+      {{ else }}
+      {{ endif }}
+    + {var} + {var:default}
+    """
+
+    lines = text.splitlines()
+    output = []
+    stack = []
+
+    def active():
+        return all(stack) if stack else True
+
+    for line in lines:
+        stripped = line.strip()
+
+        if stripped.startswith("{{ if ") and stripped.endswith("}}"):
+            varname = stripped[6:-2].strip()
+            stack.append(bool(vars.get(varname)))
+            continue
+
+        if stripped == "{{ else }}":
+            if not stack:
+                raise ValueError("{{ else }} without matching {{ if }}")
+            stack[-1] = not stack[-1]
+            continue
+
+        if stripped == "{{ endif }}":
+            if not stack:
+                raise ValueError("{{ endif }} without matching {{ if }}")
+            stack.pop()
+            continue
+
+        if active():
+            output.append(replace_vars(line, vars))
+
+    return "\n".join(output)
+
+
+# ---------------------------------------------------------------------------
+# Table builder
+# ---------------------------------------------------------------------------
 
 def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[str, str, str]]) -> str:
     """Return markdown table as string."""
@@ -116,10 +171,14 @@ def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[st
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main():
     parser = argparse.ArgumentParser(description="Generate MAINTAINERS.md")
     parser.add_argument("--repo", required=True)
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=False, default="")
     parser.add_argument("--config", required=True)
     parser.add_argument("--output")
     parser.add_argument("--token")
@@ -127,7 +186,6 @@ def main():
     parser.add_argument("--list-only", action="store_true")
     args = parser.parse_args()
 
-    # Load layered config
     cfg = load_config_with_extends(args.config)
     eprint(f"Loaded maintainer config: {args.config}")
 
@@ -155,23 +213,22 @@ def main():
     table = build_table(repo_members, user_info)
 
     if args.list_only:
-        result = table
-    else:
-        vars = dict(
-            repo=args.repo,
-            project=args.project,
-            organization=organization,
-            gov_org=gov_org,
-            yaml_link=yaml_link,
-            yaml_raw_link=yaml_raw_link,
-        )
-        result = (
-            substitute_vars(before_text, vars).rstrip()
-            + "\n\n"
-            + table
-            + "\n\n"
-            + substitute_vars(after_text, vars).lstrip()
-        )
+        print(table)
+        return
+
+    vars = dict(
+        repo=args.repo,
+        project=args.project,
+        organization=organization,
+        gov_org=gov_org,
+        yaml_link=yaml_link,
+        yaml_raw_link=yaml_raw_link,
+    )
+
+    rendered_before = render_template(before_text, vars).rstrip()
+    rendered_after = render_template(after_text, vars).lstrip()
+
+    result = f"{rendered_before}\n\n{table}\n\n{rendered_after}"
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

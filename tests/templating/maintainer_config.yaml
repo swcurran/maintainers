@@ -1,0 +1,17 @@
+extends: "tests/org/maintainer_config.yaml"
+
+before_text: |
+  {{ if project }}
+  This repository belongs to the **{project}** project.
+  {{ else }}
+  This repository is **unassigned**.
+  {{ endif }}
+
+  Project (defaulted): {project:Unassigned}
+
+after_text: |
+  {{ if project }}
+  Additional project-specific information for **{project}** goes here.
+  {{ else }}
+  No project-specific information available.
+  {{ endif }}
