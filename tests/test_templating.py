@@ -37,4 +37,4 @@ def test_templating(snapshot, scenario_path):
         config=cfg,
     )
 
-    snapshot.assert_match(output, "templating")
+    snapshot.assert_match(output, "templating.md")

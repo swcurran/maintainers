@@ -40,4 +40,4 @@ def test_templating_empty_project(snapshot, scenario_path):
         config=cfg,
     )
 
-    snapshot.assert_match(output, "templating_empty")
+    snapshot.assert_match(output, "templating_empty.md")

@@ -36,12 +36,16 @@ tests/
   conftest.py                    # pytest fixtures
   helpers.py                     # Helper function to run generator
   test_generator.py              # Main test suite
+  test_templating.py             # Tests for templating features
+  test_templating_empty.py       # Tests for templating with empty project
+  ...                            # Additional test modules
   snapshots/
     test_generator/
       repo.md
       project.md
       org.md
       list_only.md               # Auto-generated snapshot outputs
+    .../                         # Additional auto-generated snapshot outputs
 ```
 
 The `snapshots/` folder is automatically created and managed by `pytest-snapshot`.
@@ -88,13 +92,7 @@ After verifying the changes to the test outputs, update the snapshots by running
 
 `pytest --snapshot-update`
 
-This regenerates the snapshot files under:
-
-tests/snapshots/test_generator/
-  repo.md
-  project.md
-  org.md
-  list_only.md
+This regenerates the snapshot files under `tests/snapshots/test_generator/`.
 
 Always review the diffs of snapshot files and then commit them.
 
