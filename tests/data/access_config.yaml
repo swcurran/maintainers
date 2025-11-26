@@ -16,6 +16,17 @@ teams:
     members:
       - erin
 
+  - name: "team-alpha"
+    maintainers:
+      - carol
+    members:
+      - bob
+
+  - name: "team-beta"
+    maintainers: []
+    members:
+      - erin
+
 repositories:
   - name: repo-basic
     teams:
@@ -31,3 +42,11 @@ repositories:
     teams:
       core-admins: admin
       core-contributors: read
+
+  - name: "acapy-storage"
+    teams:
+      team-alpha: "maintain"
+
+  - name: "totally-different-repo"
+    teams:
+      team-beta: "read"

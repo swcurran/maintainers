@@ -5,6 +5,7 @@ import sys
 import argparse
 import requests
 import yaml
+import re
 from typing import Dict, Any, Optional, Set, Tuple
 
 
@@ -54,9 +55,34 @@ def load_config_with_extends(cfg_path: str) -> Dict[str, Any]:
     """Load config, recursively resolving 'extends'."""
     cfg = load_yaml(cfg_path)
     if "extends" in cfg:
-        parent = load_config_with_extends(cfg["extends"])
-        return merge_configs(parent, cfg)
+        parent_path = cfg["extends"]
+        parent_cfg = load_config_with_extends(parent_path)
+        return merge_configs(parent_cfg, cfg)
     return cfg
+
+
+def detect_project(repo: str, cfg: Dict[str, Any]) -> str:
+    """
+    Return project name based on regex rules in project_map.
+
+    project_map:
+      - name: "ACA-Py"
+        repos:
+          - "^acapy"
+          - "^aries-cloudagent-python"
+    """
+    project_map = cfg.get("project_map", [])
+    for entry in project_map:
+        name = entry.get("name", "")
+        patterns = entry.get("repos", []) or []
+        for pat in patterns:
+            try:
+                if re.search(pat, repo):
+                    return name or ""
+            except re.error:
+                # Bad regex; ignore and continue
+                continue
+    return ""  # No match → empty string
 
 
 def gh_get_user(username: str, session: requests.Session, token: Optional[str]) -> Tuple[str, str, str]:
@@ -94,36 +120,107 @@ def collect_repo_members(repo_name: str, governance: Dict[str, Any]) -> Dict[str
     return members
 
 
-def substitute_vars(text: str, vars: Dict[str, str]) -> str:
-    """Replace {var} in before/after template text."""
-    # Conditional blocks: {{ if var }} ... {{ else }} ... {{ endif }}
-    import re
-    def cond_repl(match):
-        var = match.group(1).strip()
-        body_if = match.group(2)
-        body_else = match.group(3) or ""
-        val = vars.get(var, "")
-        return body_if if val else body_else
+# ---------------------------------------------------------------------------
+# Templating helpers: conditional blocks + defaulted placeholders
+# ---------------------------------------------------------------------------
 
-    text = re.sub(
-        r"\{\{\s*if\s+([a-zA-Z0-9_]+)\s*\}\}(.*?)(?:\{\{\s*else\s*\}\}(.*?))?\{\{\s*endif\s*\}\}",
-        cond_repl,
-        text,
-        flags=re.DOTALL,
-    )
+def render_conditionals(text: str, vars: Dict[str, str]) -> str:
+    """
+    Process conditional blocks of the form:
 
-    # Simple {var} and {var:default}
-    for k, v in vars.items():
-        text = text.replace("{" + k + "}", v)
-    import re
-    def default_repl(m):
-        key = m.group(1)
-        default = m.group(2)
-        return vars.get(key, default)
-    text = re.sub(r"\{([a-zA-Z0-9_]+):([^}]+)\}", default_repl, text)
+      {{ if var }}
+      ...
+      {{ else }}
+      ...
+      {{ endif }}
 
+    Truthiness is based on vars[var] being a non-empty string.
+    """
+    lines = text.splitlines()
+    out_lines = []
+
+    # Stack of (active, cond_value, in_else, parent_active)
+    stack: list[Tuple[bool, bool, bool, bool]] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("{{") and stripped.endswith("}}"):
+            inner = stripped[2:-2].strip()
+
+            if inner.startswith("if "):
+                var_name = inner[3:].strip()
+                cond_val = bool(vars.get(var_name, ""))
+                parent_active = stack[-1][0] if stack else True
+                active = parent_active and cond_val
+                stack.append([active, cond_val, False, parent_active])  # type: ignore[list-item]
+                continue
+
+            if inner == "else":
+                if stack:
+                    active, cond_val, _, parent_active = stack[-1]  # type: ignore[misc]
+                    # For else: active if parent active and original cond was False
+                    new_active = parent_active and (not cond_val)
+                    stack[-1] = [new_active, cond_val, True, parent_active]  # type: ignore[list-item]
+                continue
+
+            if inner == "endif":
+                if stack:
+                    stack.pop()
+                continue
+
+        # Normal line
+        include = True
+        for active, _, _, _ in stack:
+            if not active:
+                include = False
+                break
+        if include:
+            out_lines.append(line)
+
+    return "\n".join(out_lines)
+
+
+def apply_default_placeholders(text: str, vars: Dict[str, str]) -> str:
+    """
+    Handle {var:Default} syntax.
+
+    - If vars[var] is non-empty, use that.
+    - Else, use Default.
+    """
+    def repl(match: re.Match) -> str:
+        name = match.group(1)
+        default = match.group(2)
+        val = vars.get(name, "")
+        return val if val else default
+
+    pattern = re.compile(r"\{([A-Za-z0-9_]+):([^}]+)\}")
+    return pattern.sub(repl, text)
+
+
+def apply_simple_placeholders(text: str, vars: Dict[str, str]) -> str:
+    """Handle {var} placeholders (after defaults have been processed)."""
+    def repl(match: re.Match) -> str:
+        name = match.group(1)
+        return vars.get(name, "")
+
+    pattern = re.compile(r"\{([A-Za-z0-9_]+)\}")
+    return pattern.sub(repl, text)
+
+
+def render_template(text: str, vars: Dict[str, str]) -> str:
+    """Full template rendering: conditionals → defaults → simple vars."""
+    # 1. Conditionals
+    text = render_conditionals(text, vars)
+    # 2. Defaulted placeholders {var:default}
+    text = apply_default_placeholders(text, vars)
+    # 3. Simple placeholders {var}
+    text = apply_simple_placeholders(text, vars)
     return text
 
+
+# ---------------------------------------------------------------------------
+# Markdown table builder
+# ---------------------------------------------------------------------------
 
 def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[str, str, str]]) -> str:
     """Return markdown table as string."""
@@ -147,18 +244,27 @@ def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[st
 def main():
     parser = argparse.ArgumentParser(description="Generate MAINTAINERS.md")
     parser.add_argument("--repo", required=True)
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=False, default=None)
     parser.add_argument("--config", required=True)
     parser.add_argument("--output")
     parser.add_argument("--token")
     parser.add_argument("--no-fetch", action="store_true")
     parser.add_argument("--list-only", action="store_true")
     args = parser.parse_args()
-    maintainers_config_ui_link = args.config
-    maintainers_config_raw_link = to_raw_url(args.config)
 
+    # Load layered config (with extends)
     cfg = load_config_with_extends(args.config)
     eprint(f"Loaded maintainer config: {args.config}")
+
+    # Determine final project value:
+    # - If --project is omitted or "", auto-detect via project_map
+    # - Else, use provided value
+    if args.project is None or args.project == "":
+        project = detect_project(args.repo, cfg)
+        eprint(f"Auto-detected project: '{project}'")
+    else:
+        project = args.project
+        eprint(f"Using provided project: '{project}'")
 
     before_text = cfg.get("before_text", "")
     after_text = cfg.get("after_text", "")
@@ -168,6 +274,10 @@ def main():
 
     if not yaml_link:
         raise ValueError("yaml_link missing in configuration.")
+
+    # The effective config used for this run
+    maintainers_config_link = args.config
+    maintainers_config_raw_link = to_raw_url(args.config)
 
     yaml_raw_link = to_raw_url(yaml_link)
     eprint(f"Governance YAML RAW URL: {yaml_raw_link}")
@@ -184,27 +294,21 @@ def main():
     table = build_table(repo_members, user_info)
 
     if args.list_only:
-        print(table)
-        return
-
-    vars = dict(
-        repo=args.repo,
-        project=args.project,
-        organization=organization,
-        gov_org=gov_org,
-        yaml_link=yaml_link,
-        yaml_raw_link=yaml_raw_link,
-        maintainers_config_link=maintainers_config_ui_link,
-        maintainers_config_raw_link=maintainers_config_raw_link,
-    )
-
-    result = (
-        substitute_vars(before_text, vars).rstrip()
-        + "\n\n"
-        + table
-        + "\n\n"
-        + substitute_vars(after_text, vars).lstrip()
-    )
+        result = table
+    else:
+        vars: Dict[str, str] = dict(
+            repo=args.repo,
+            project=project,
+            organization=organization,
+            gov_org=gov_org,
+            yaml_link=yaml_link,
+            yaml_raw_link=yaml_raw_link,
+            maintainers_config_link=maintainers_config_link,
+            maintainers_config_raw_link=maintainers_config_raw_link,
+        )
+        rendered_before = render_template(before_text, vars).rstrip()
+        rendered_after = render_template(after_text, vars).lstrip()
+        result = rendered_before + "\n\n" + table + "\n\n" + rendered_after
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

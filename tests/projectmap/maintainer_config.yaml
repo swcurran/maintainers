@@ -1,0 +1,19 @@
+extends: "tests/org/maintainer_config.yaml"
+
+project_map:
+  - name: "ACA-Py"
+    repos:
+      - "^acapy"
+      - "^aries-cloudagent-python"
+
+before_text: |
+  # Maintainers (Project Map Test)
+
+  {{ if project }}
+  This repo auto-detected project **{project}**.
+  {{ else }}
+  No project detected for this repository.
+  {{ endif }}
+
+after_text: |
+  End of project-map test.

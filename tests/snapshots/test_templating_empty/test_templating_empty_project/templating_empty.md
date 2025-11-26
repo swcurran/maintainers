@@ -1,8 +1,6 @@
-
 This repository is **unassigned**.
 
-
-Project (defaulted):
+Project (defaulted): Unassigned
 
 ## Current Maintainers
 
@@ -14,4 +12,3 @@ Project (defaulted):
 | dave |  |  |  | maintain |
 
 No project-specific information available.
-
