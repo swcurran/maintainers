@@ -1,9 +1,9 @@
 # Maintainers
 
-This file lists the maintainers for the **acapy** repository within the
-**ACA-Py** project that is part of the **Open Source Foundation**. It is
+This file lists the maintainers for the **acapy** repository
+that is part of the **OpenWallet Foundation**. It is
 automatically generated from configuration file managed in the
-**Open Source Foundation Governance Repository**:
+**OpenWallet Foundation OWF Governance Repository**:
 
 `https://github.com/openwallet-foundation/governance/blob/main/config.yaml`
 
@@ -44,7 +44,7 @@ Refer to the sections below for instructions.
 ## Updating the Maintainers List
 
 The maintainers table above is derived from team definitions stored in the  
-**Open Source Foundation Governance Repository**. To update team membership:
+**OpenWallet Foundation OWF Governance Repository**. To update team membership:
 
 1. Edit the appropriate team(s) in the Governance Repository configuration file:  
    [https://github.com/openwallet-foundation/governance/blob/main/config.yaml](https://github.com/openwallet-foundation/governance/blob/main/config.yaml) in the GitHub user interface or in a

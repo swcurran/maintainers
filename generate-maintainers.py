@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-# generate-maintainers.py (with lightweight templating)
+# generate-maintainers.py
 
 import sys
 import argparse
 import requests
 import yaml
 from typing import Dict, Any, Optional, Set, Tuple
-import re
 
 
 def eprint(*args, **kwargs):
@@ -95,66 +94,36 @@ def collect_repo_members(repo_name: str, governance: Dict[str, Any]) -> Dict[str
     return members
 
 
-# ---------------------------------------------------------------------------
-# Templating: conditionals + default values
-# ---------------------------------------------------------------------------
+def substitute_vars(text: str, vars: Dict[str, str]) -> str:
+    """Replace {var} in before/after template text."""
+    # Conditional blocks: {{ if var }} ... {{ else }} ... {{ endif }}
+    import re
+    def cond_repl(match):
+        var = match.group(1).strip()
+        body_if = match.group(2)
+        body_else = match.group(3) or ""
+        val = vars.get(var, "")
+        return body_if if val else body_else
 
-VAR_PATTERN = re.compile(r"\{([a-zA-Z0-9_]+)(?::([^}]+))?\}")
+    text = re.sub(
+        r"\{\{\s*if\s+([a-zA-Z0-9_]+)\s*\}\}(.*?)(?:\{\{\s*else\s*\}\}(.*?))?\{\{\s*endif\s*\}\}",
+        cond_repl,
+        text,
+        flags=re.DOTALL,
+    )
 
-def replace_vars(text: str, vars: Dict[str, str]) -> str:
-    """Replace {var} and {var:default} patterns."""
-    def repl(match):
-        key = match.group(1)
-        default = match.group(2)
-        return vars.get(key, default if default is not None else "")
-    return VAR_PATTERN.sub(repl, text)
+    # Simple {var} and {var:default}
+    for k, v in vars.items():
+        text = text.replace("{" + k + "}", v)
+    import re
+    def default_repl(m):
+        key = m.group(1)
+        default = m.group(2)
+        return vars.get(key, default)
+    text = re.sub(r"\{([a-zA-Z0-9_]+):([^}]+)\}", default_repl, text)
 
+    return text
 
-def render_template(text: str, vars: Dict[str, str]) -> str:
-    """
-    Supports:
-      {{ if var }}
-      {{ else }}
-      {{ endif }}
-    + {var} + {var:default}
-    """
-
-    lines = text.splitlines()
-    output = []
-    stack = []
-
-    def active():
-        return all(stack) if stack else True
-
-    for line in lines:
-        stripped = line.strip()
-
-        if stripped.startswith("{{ if ") and stripped.endswith("}}"):
-            varname = stripped[6:-2].strip()
-            stack.append(bool(vars.get(varname)))
-            continue
-
-        if stripped == "{{ else }}":
-            if not stack:
-                raise ValueError("{{ else }} without matching {{ if }}")
-            stack[-1] = not stack[-1]
-            continue
-
-        if stripped == "{{ endif }}":
-            if not stack:
-                raise ValueError("{{ endif }} without matching {{ if }}")
-            stack.pop()
-            continue
-
-        if active():
-            output.append(replace_vars(line, vars))
-
-    return "\n".join(output)
-
-
-# ---------------------------------------------------------------------------
-# Table builder
-# ---------------------------------------------------------------------------
 
 def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[str, str, str]]) -> str:
     """Return markdown table as string."""
@@ -178,13 +147,15 @@ def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[st
 def main():
     parser = argparse.ArgumentParser(description="Generate MAINTAINERS.md")
     parser.add_argument("--repo", required=True)
-    parser.add_argument("--project", required=False, default="")
+    parser.add_argument("--project", required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--output")
     parser.add_argument("--token")
     parser.add_argument("--no-fetch", action="store_true")
     parser.add_argument("--list-only", action="store_true")
     args = parser.parse_args()
+    maintainers_config_ui_link = args.config
+    maintainers_config_raw_link = to_raw_url(args.config)
 
     cfg = load_config_with_extends(args.config)
     eprint(f"Loaded maintainer config: {args.config}")
@@ -223,12 +194,17 @@ def main():
         gov_org=gov_org,
         yaml_link=yaml_link,
         yaml_raw_link=yaml_raw_link,
+        maintainers_config_link=maintainers_config_ui_link,
+        maintainers_config_raw_link=maintainers_config_raw_link,
     )
 
-    rendered_before = render_template(before_text, vars).rstrip()
-    rendered_after = render_template(after_text, vars).lstrip()
-
-    result = f"{rendered_before}\n\n{table}\n\n{rendered_after}"
+    result = (
+        substitute_vars(before_text, vars).rstrip()
+        + "\n\n"
+        + table
+        + "\n\n"
+        + substitute_vars(after_text, vars).lstrip()
+    )
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

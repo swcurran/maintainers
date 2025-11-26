@@ -10,13 +10,14 @@
 #   {repo}          – Repository name
 #   {gov_org}       – Name of the Governance Repository (e.g., "governance")
 #   {yaml_link}     – Link to the governance teams/roles YAML file
+#   {maintainers_config_link} – Link to the active maintainers config file
 
 
-organization: "Open Source Foundation"   # Example value—replace as needed
+organization: "OpenWallet Foundation"   # Example value—replace as needed
 yaml_link: "https://github.com/openwallet-foundation/governance/blob/main/config.yaml"
 
 # Name used in display text (e.g., "OWF Governance Repository")
-gov_org: "Governance Repository"
+gov_org: "OWF Governance Repository"
 
 # ---------------------------------------------------------------------------
 # BEFORE TEXT (Markdown)
@@ -25,22 +26,25 @@ gov_org: "Governance Repository"
 before_text: |
   # Maintainers
 
-  This file lists the maintainers for the **{repo}** repository within the
-  **{project}** project that is part of the **{organization}**. It is
-  automatically generated from configuration file managed in the
-  **{organization} {gov_org}**:
+  This file includes a list of maintainers for the **{repo}** repository
+  {{ if project }}
+  within the **{project}** project,
+  {{ endif }}
+  which is part of the **{organization}**, the duties of those maintainers,
+  and the governance processes for updating the list of maintainers.
 
-  `{yaml_link}`
-
-  To make changes, do **not** edit this file manually.
-  Refer to the sections below for instructions.
+  This file is **automatically generated** and should not be edited directly.
+  See the guidance below for updating the
+  [list of maintainers](#updating-the-list-of-maintainers)
+  and the [text](#updating-the-text-in-this-file) in this file.
 
   ## Table of Contents
-  1. [Maintainers Table](#current-maintainers)
-  2. [Updating Team Membership](#updating-team-membership)
-  3. [Duties of a Maintainer](#duties-of-a-maintainer)
-  4. [Becoming a Maintainer](#becoming-a-maintainer)
-  5. [Removing Maintainers](#removing-maintainers)
+  1. [Current Maintainers](#current-maintainers)
+  2. [Duties of a Maintainer](#duties-of-a-maintainer)
+  3. [Becoming a Maintainer](#becoming-a-maintainer)
+  4. [Removing Maintainers](#removing-maintainers)
+  5. [Updating the List of Maintainers](#updating-the-list-of-maintainers)
+  6. [Updating the Text in This File](#updating-the-text-in-this-file)
 
 
 # ---------------------------------------------------------------------------
@@ -48,76 +52,107 @@ before_text: |
 # ---------------------------------------------------------------------------
 
 after_text: |
-  ## Updating the Maintainers List
-
-  The maintainers table above is derived from team definitions stored in the  
-  **{organization} {gov_org}**. To update team membership:
-
-  1. Edit the appropriate team(s) in the Governance Repository configuration file:  
-     [{yaml_link}]({yaml_link}) in the GitHub user interface or in a
-     fork of the repository.
-  2. Create a Pull Request with the proposed changes.
-  3. Get PR approvals or supportive comments on the PR from existing maintainers.
-  4. After the PR is merged, this MAINTAINERS.md file will be updated automatically
-     during the next generator run.
-
-  Those are the mechanical steps to manage the maintainers teams and roles. The
-  sections below define maintainer *governance*.
-
   ## Duties of a Maintainer
 
-  Maintainers are responsible for the quality, security, and long-term health of this repository.
-  They are expected to:
+  Maintainers are responsible for the quality, security, and long-term health of
+  this repository. Their responsibilities include:
 
-  - Respond to and act on security vulnerabilities.
-  - Review, provide feedback on, and merge or reject Pull Requests.
-  - Review, triage, comment on, and close GitHub Issues.
-  - Facilitate architectural or roadmap discussions when appropriate.
-  - Create and label issues for contributors.
-  - Maintain CI/CD and release pipelines.
-  - Participate in release processes.
-  - Maintain CONTRIBUTING.md and onboarding documentation.
-  - Contribute improvements via Pull Requests.
-  - Stay aligned with project-wide or foundation-wide governance expectations.
+  - Responding to and acting on reported security vulnerabilities.
+  - Reviewing, providing feedback on, and merging or rejecting Pull Requests.
+  - Reviewing, triaging, commenting on, and closing GitHub Issues.
+  - Facilitating architectural or roadmap discussions when appropriate.
+  - Creating, labeling, and prioritizing issues for contributors.
+  - Maintaining CI/CD pipelines and ensuring reliable releases.
+  - Participating in and executing release processes.
+  - Keeping CONTRIBUTING.md and onboarding documentation up to date.
+  - Contributing improvements via Pull Requests.
+  - Aligning with organization-wide governance expectations.
 
   ## Becoming a Maintainer
 
-  This community encourages contributors to grow into maintainers.
-  To become a maintainer:
+  This community encourages contributors to grow into maintainers. The typical
+  process is:
 
-  1. Demonstrate ongoing contributions to the project  
-     (generally ~5 significant merged PRs).
-  2. Self-nominate or be nominated by an existing maintainer in a meeting, via a GitHub issue or in a community chat.
-  3. The prospective maintainer must confirm their willingness to serve long-term (typically >6 months).
-  4. After nomination, an approval period begins:
-     - Announce the nomination in appropriate communication channels.
-     - Encourage community feedback.
-  6. Approval occurs when:
+  1. Demonstrate sustained contribution to the project  
+     (commonly ~5 significant merged PRs).
+  2. Be nominated or self-nominate via a GitHub Issue, community meeting, or
+     project communication channel.
+  3. Confirm willingness to serve as a long-term maintainer (typically >6 months).
+  4. Enter an approval period:
+     - Announce the nomination broadly so community feedback may be provided.
+  5. Approval occurs when:
      - Three maintainers approve and two weeks pass, **or**
      - An absolute majority approve.
-  7. Once approved, update the team membership via a PR to the Governance
-  Repository as per the [updating the maintainers list process](#updating-the-maintainers-list-process).
+  6. Follow the steps to [update the list of maintainers](#updating-the-list-of-maintainers).
 
-  This file will update automatically after that PR is merged.
+  This ensures a transparent and consensus-driven onboarding process.
 
   ## Removing Maintainers
 
-  Maintainers may transition to emeritus status for reason including:
+  Maintainers may transition to emeritus status for reasons including:
 
   - Voluntary resignation  
   - Inactivity (typically one quarter without contributions or reviews)  
   - Code of Conduct violations  
-  - Other circumstances deemed appropriate by the maintainers
+  - Other circumstances agreed upon by the maintainers
 
-  The removal process:
+  The transition process is:
 
-  1. Open an issue proposing the transition.
+  1. Open an issue proposing the change.
   2. Obtain support from an existing maintainer or governance administrator.
-  3. The approval period begins and may be communicated publicly.
+  3. Enter an approval period (it may be announced publicly to solicit feedback).
   4. Transition occurs when:
      - The maintainer agrees, **or**
      - Three maintainers approve and two weeks pass, **or**
      - An absolute majority approve.
-  5. Update team membership via a PR to the Governance Repository.
+  5. Follow the steps to [update the list of maintainers](#updating-the-list-of-maintainers).
+
 
   Returning from emeritus status follows the same steps as becoming a maintainer.
+
+  ## Updating the List of Maintainers
+
+  The maintainer table in this file is generated from team definitions
+  stored in the **{organization} {gov_org}**. This repository does *not* maintain
+  its own list of maintainers; all membership lives centrally in the governance
+  repostory of the **{organization}**.
+
+  To change who appears in the Maintainers Table:
+
+  - Follow the governance process for Adding or Removing maintainers, described
+    above.
+  - Once those steps are complete, make the corresponding technical change by
+    submitting a Pull Request to update the governance YAML file:
+
+    `{yaml_link}`
+
+  After that PR is merged, this MAINTAINERS.md file will be automatically
+  regenerated by the Maintainers Generator on its next run.
+
+  ## Updating the Text in This File
+
+  The text that appears **before and after** the Maintainers Table is also
+  generated automatically. It is controlled through maintainer configuration
+  file, located at the here:
+
+  - `{maintainers_config_link}`
+`
+  A PR may be submitted to change the text in that file, impacting all
+  repositories using that configuration. Do this if the change should apply
+  broadly.
+
+  If that file is **not** part of this repository, you can use the following steps
+  to make repository- or project-specific changes to the content.
+
+  1. Create a `.maintainers-config.yaml` file in the root of the repository.
+     The file may have the full configuration information or may start with an
+     `extends` directive to inherit from the existing configuration by specifying the URL:
+     `{maintainers_config_link}` or a project-level maintainers configuration
+     file. The location of the project-level file depends on your project's setup.
+  2. The file may also contain any repo level overrides, such as
+     updated `before_text` or `after_text` content.
+  3. After the PR is merged, the Maintainers Generator will update this file
+     automatically.
+
+  See the documentation for the Maintainers Generator for additional details
+  about configuration layering and template behavior.
