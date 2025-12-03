@@ -110,7 +110,7 @@ This helps ensure that any change to the generated MAINTAINERS.md is deliberate 
 
 The errors/ directory contains configurations used to test that the generator handles invalid situations correctly, such as:
 
-- Referencing a repository that does not exist in the governance YAML
+- Referencing a repository that does not exist in the CLOWarden configuration
 - Using incomplete or incorrect configuration
 
 Tests in test_generator.py verify that these cases result in clear, meaningful error messages rather than crashes or silent failures.

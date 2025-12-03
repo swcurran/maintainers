@@ -25,16 +25,17 @@ def load_yaml(path_or_url: str) -> Dict[str, Any]:
 
 
 def to_raw_url(url: str) -> str:
-    """Convert GitHub UI URLs to ?raw=true, leave local paths untouched."""
+    """
+    Convert GitHub UI URLs to ?raw=true.
+    Leave local paths untouched. Leave raw.githubusercontent.com untouched.
+    """
     if not url.startswith(("http://", "https://")):
-        # Local file path → return unchanged
         return url
 
-    # Already a raw URL or already has ?raw=true
     if "raw.githubusercontent.com" in url or "?raw=true" in url:
         return url
 
-    # Convert GitHub UI URL
+    # Convert GitHub blob URLs automatically
     return url + ("&raw=true" if "?" in url else "?raw=true")
 
 
@@ -55,8 +56,7 @@ def load_config_with_extends(cfg_path: str) -> Dict[str, Any]:
     """Load config, recursively resolving 'extends'."""
     cfg = load_yaml(cfg_path)
     if "extends" in cfg:
-        parent_path = cfg["extends"]
-        parent_cfg = load_config_with_extends(parent_path)
+        parent_cfg = load_config_with_extends(cfg["extends"])
         return merge_configs(parent_cfg, cfg)
     return cfg
 
@@ -100,13 +100,18 @@ def gh_get_user(username: str, session: requests.Session, token: Optional[str]) 
     )
 
 
-def collect_repo_members(repo_name: str, governance: Dict[str, Any]) -> Dict[str, Set[str]]:
-    """Return dict: {username -> {role1, role2}}."""
-    repo_entry = next((r for r in governance.get("repositories", []) if r.get("name") == repo_name), None)
+def collect_repo_members(repo_name: str, clowarden_cfg: Dict[str, Any]) -> Dict[str, Set[str]]:
+    """
+    Return {username -> {role1, role2}} based on a CLOWarden access configuration.
+    """
+    repo_entry = next(
+        (r for r in clowarden_cfg.get("repositories", []) if r.get("name") == repo_name),
+        None,
+    )
     if not repo_entry:
-        raise ValueError(f"Repository '{repo_name}' not found in governance YAML.")
+        raise ValueError(f"Repository '{repo_name}' not found in CLOWarden configuration.")
 
-    teams = {t["name"]: t for t in governance.get("teams", [])}
+    teams = {t["name"]: t for t in clowarden_cfg.get("teams", [])}
     members: Dict[str, Set[str]] = {}
 
     for team_name, role in repo_entry.get("teams", {}).items():
@@ -121,7 +126,7 @@ def collect_repo_members(repo_name: str, governance: Dict[str, Any]) -> Dict[str
 
 
 # ---------------------------------------------------------------------------
-# Templating helpers: conditional blocks + defaulted placeholders
+# Templating: conditionals + default placeholders
 # ---------------------------------------------------------------------------
 
 def render_conditionals(text: str, vars: Dict[str, str]) -> str:
@@ -138,12 +143,11 @@ def render_conditionals(text: str, vars: Dict[str, str]) -> str:
     """
     lines = text.splitlines()
     out_lines = []
-
-    # Stack of (active, cond_value, in_else, parent_active)
-    stack: list[Tuple[bool, bool, bool, bool]] = []
+    stack = []  # (active, cond_value, in_else, parent_active)
 
     for line in lines:
         stripped = line.strip()
+
         if stripped.startswith("{{") and stripped.endswith("}}"):
             inner = stripped[2:-2].strip()
 
@@ -152,15 +156,14 @@ def render_conditionals(text: str, vars: Dict[str, str]) -> str:
                 cond_val = bool(vars.get(var_name, ""))
                 parent_active = stack[-1][0] if stack else True
                 active = parent_active and cond_val
-                stack.append([active, cond_val, False, parent_active])  # type: ignore[list-item]
+                stack.append([active, cond_val, False, parent_active])
                 continue
 
             if inner == "else":
                 if stack:
-                    active, cond_val, _, parent_active = stack[-1]  # type: ignore[misc]
-                    # For else: active if parent active and original cond was False
+                    active, cond_val, _, parent_active = stack[-1]
                     new_active = parent_active and (not cond_val)
-                    stack[-1] = [new_active, cond_val, True, parent_active]  # type: ignore[list-item]
+                    stack[-1] = [new_active, cond_val, True, parent_active]
                 continue
 
             if inner == "endif":
@@ -168,7 +171,6 @@ def render_conditionals(text: str, vars: Dict[str, str]) -> str:
                     stack.pop()
                 continue
 
-        # Normal line
         include = True
         for active, _, _, _ in stack:
             if not active:
@@ -219,7 +221,7 @@ def render_template(text: str, vars: Dict[str, str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Markdown table builder
+# Markdown table
 # ---------------------------------------------------------------------------
 
 def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[str, str, str]]) -> str:
@@ -232,8 +234,8 @@ def build_table(repo_members: Dict[str, Set[str]], user_info: Dict[str, Tuple[st
     ]
     for user, roles in sorted(repo_members.items()):
         name, email, company = user_info[user]
-        role_str = ", ".join(sorted(roles))
-        lines.append(f"| {user} | {name} | {email} | {company} | {role_str} |")
+        roles_str = ", ".join(sorted(roles))
+        lines.append(f"| {user} | {name} | {email} | {company} | {roles_str} |")
     return "\n".join(lines)
 
 
@@ -252,9 +254,9 @@ def main():
     parser.add_argument("--list-only", action="store_true")
     args = parser.parse_args()
 
-    # Load layered config (with extends)
+    # Load generator config with extends
     cfg = load_config_with_extends(args.config)
-    eprint(f"Loaded maintainer config: {args.config}")
+    eprint(f"Loaded generator config: {args.config}")
 
     # Determine final project value:
     # - If --project is omitted or "", auto-detect via project_map
@@ -269,21 +271,17 @@ def main():
     before_text = cfg.get("before_text", "")
     after_text = cfg.get("after_text", "")
     organization = cfg.get("organization", "Organization")
-    gov_org = cfg.get("gov_org", "Governance Repository")
-    yaml_link = cfg.get("yaml_link")
+    governance_repo = cfg.get("governance_repo", "Governance Repository")
 
-    if not yaml_link:
-        raise ValueError("yaml_link missing in configuration.")
+    clowarden_file = cfg.get("clowarden_file")
+    if not clowarden_file:
+        raise ValueError("clowarden_file missing in configuration.")
 
-    # The effective config used for this run
-    maintainers_config_link = args.config
-    maintainers_config_raw_link = to_raw_url(args.config)
+    clowarden_raw_file = to_raw_url(clowarden_file)
+    eprint(f"CLOWarden RAW URL: {clowarden_raw_file}")
 
-    yaml_raw_link = to_raw_url(yaml_link)
-    eprint(f"Governance YAML RAW URL: {yaml_raw_link}")
-
-    governance = load_yaml(yaml_raw_link)
-    repo_members = collect_repo_members(args.repo, governance)
+    clowarden_cfg = load_yaml(clowarden_raw_file)
+    repo_members = collect_repo_members(args.repo, clowarden_cfg)
 
     session = requests.Session()
     if args.no_fetch:
@@ -296,19 +294,23 @@ def main():
     if args.list_only:
         result = table
     else:
-        vars: Dict[str, str] = dict(
+        vars = dict(
             repo=args.repo,
             project=project,
             organization=organization,
-            gov_org=gov_org,
-            yaml_link=yaml_link,
-            yaml_raw_link=yaml_raw_link,
-            maintainers_config_link=maintainers_config_link,
-            maintainers_config_raw_link=maintainers_config_raw_link,
+            governance_repo=governance_repo,
+            clowarden_file=clowarden_file,
+            clowarden_raw_file=clowarden_raw_file,
+            maintainers_config_link=args.config,
+            maintainers_config_raw_link=to_raw_url(args.config),
         )
-        rendered_before = render_template(before_text, vars).rstrip()
-        rendered_after = render_template(after_text, vars).lstrip()
-        result = rendered_before + "\n\n" + table + "\n\n" + rendered_after
+        result = (
+            render_template(before_text, vars).rstrip()
+            + "\n\n"
+            + table
+            + "\n\n"
+            + render_template(after_text, vars).lstrip()
+        )
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

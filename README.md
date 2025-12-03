@@ -17,7 +17,7 @@ The generator produces a complete `MAINTAINERS.md` including:
 - A templated “after text” section describing governance policies, maintainer duties, and instructions for updating maintainers
 - Optional overrides at the project or repo level
 
-It is best deployed centrally with a GitHub Actions workflow that updates all `MAINTAINERS.md` files via per-repository PRs. Alternatively, it can be deployed at the repository level.
+It is best deployed centrally in the governance repository (beside the [CLOWarden] data) with a GitHub Actions workflow that updates all `MAINTAINERS.md` files via per-repository PRs. Alternatively, it can be deployed at the repository level or just run manually and pushed via a PR.
 
 ## Table of Contents<!-- omit in toc -->
 
@@ -25,16 +25,13 @@ It is best deployed centrally with a GitHub Actions workflow that updates all `M
 - [Deploying the Maintainer List Generator](#deploying-the-maintainer-list-generator)
 - [Project or Repository-Level Configuration](#project-or-repository-level-configuration)
 - [Running the Generator Locally](#running-the-generator-locally)
-	- [Useful Options](#useful-options)
+  - [Useful Options](#useful-options)
 - [GitHub Action Usage](#github-action-usage)
-	- [Per-Repository Workflow](#per-repository-workflow)
-	- [Centralized Organizational Workflow (recommended)](#centralized-organizational-workflow-recommended)
+  - [Per-Repository Workflow](#per-repository-workflow)
+  - [Centralized Organizational Workflow (recommended)](#centralized-organizational-workflow-recommended)
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
-
-
----
 
 ## How It Works
 
@@ -42,7 +39,7 @@ The generator produces a `MAINTAINERS.md` file by combining:
 
 ### 1. Governance Access Configuration<!-- omit in toc -->
 
-A [CLOWarden]-managed YAML file (e.g., `access_config.yaml`) containing:
+A [CLOWarden]-managed YAML file (e.g., `access_config.yaml`) that contains:
 
 - GitHub teams
 - Team maintainers and members
@@ -59,7 +56,7 @@ Unless the `--no-fetch` option is specified, it retrieves GitHub profile fields 
 - Email
 - Company
 
-The GitHub username is taken from the governance YAML file.
+The GitHub username is taken from the CLOWarden configuration file.
 
 ### 3. Maintainer Configuration Files<!-- omit in toc -->
 

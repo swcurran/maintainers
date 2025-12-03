@@ -1,6 +1,6 @@
 organization: "Error Org"
-gov_org: "Error Governance"
-yaml_link: "tests/data/access_config.yaml"
+governance_repo: "Error Governance"
+clowarden_file: "tests/data/access_config.yaml"
 
 before_text: ""
 after_text: ""

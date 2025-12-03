@@ -6,4 +6,4 @@ before_text: |
   This repository (**{repo}**) belongs to project **{project}**.
 
   Organization: {organization}
-  Governance configuration: {yaml_link}
+  Governance configuration: {clowarden_file}

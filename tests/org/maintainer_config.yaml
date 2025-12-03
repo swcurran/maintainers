@@ -1,6 +1,6 @@
 organization: "Test Open Source Foundation"
-gov_org: "Test Governance Repository"
-yaml_link: "tests/data/access_config.yaml"
+governance_repo: "Test Governance Repository"
+clowarden_file: "tests/data/access_config.yaml"
 
 before_text: |
   # Maintainers for {repo}
@@ -11,7 +11,7 @@ before_text: |
   which belongs to the **{project}** project under the **{organization}**.
 
   Governance details for team membership and permissions come from:
-  **{yaml_link}**
+  **{clowarden_file}**
 
 after_text: |
   ## Maintainer Duties
@@ -23,4 +23,4 @@ after_text: |
 
   ## Source of Truth
 
-  Maintainer membership is defined in the `{gov_org}` configuration.
+  Maintainer membership is defined in the `{governance_repo}` configuration.

@@ -38,4 +38,4 @@ def test_missing_repo_raises(scenario_path):
     ]
     p = run(args, cwd=str(REPO_ROOT), capture_output=True, text=True)
     assert p.returncode != 0
-    assert "not found in governance YAML" in p.stderr
+    assert "not found in CLOWarden configuration" in p.stderr
